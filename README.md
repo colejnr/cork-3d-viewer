@@ -78,7 +78,15 @@ npm run dev       # http://localhost:5173
 
 3. **Check it locally** with `npm run dev`, then **deploy to its own Pages project** by
    changing `--project-name` in the `deploy` script (for example `newsite-3d`). Each job
-   then gets its own `*.pages.dev` address.
+   then gets its own `*.pages.dev` address. Create the new project once first:
+
+   ```bash
+   npx wrangler pages project create newsite-3d --production-branch main --force
+   ```
+
+   `--force` is needed only for this create step. Without it, recent versions of wrangler
+   try to create the project on Cloudflare Workers instead of Pages, and the create fails.
+   Once the project exists, `npm run deploy` works as normal.
 
 ## Redeploying
 
