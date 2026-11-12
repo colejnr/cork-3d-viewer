@@ -1,10 +1,10 @@
 {
   "company": "DroneAsAService",
   "site": {
-    "name": "Albert Quay, Cork",
-    "address": "Albert Quay, Cork",
+    "name": "One Albert Quay",
+    "address": "Albert Quay, Cork T12 X8N6",
     "surveyDate": "2026-11-02",
-    "client": ""
+    "client": "Savills"
   },
   "model": "model/tileset.json",
   "heightOffset": -59,
