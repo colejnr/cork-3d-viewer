@@ -1,0 +1,6 @@
+/model/*
+  Cache-Control: public, max-age=86400
+  Access-Control-Allow-Origin: *
+
+/config.json
+  Cache-Control: no-cache

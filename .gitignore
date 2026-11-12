@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.wrangler/
+# The 3D model is copied in locally by `npm run model` and never committed.
+public/model/
+*.log
+.DS_Store

@@ -1,0 +1,27 @@
+{
+  "name": "cork-3d-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Client-facing 3D model viewer for a drone roof inspection (CesiumJS + 3D Tiles).",
+  "scripts": {
+    "model": "node scripts/copy-model.mjs",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build && node scripts/check-dist.mjs",
+    "preview": "vite preview",
+    "deploy": "npm run build && npx wrangler pages deploy dist --project-name cork-albert-quay-3d"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "wrangler": "^4.160.1"
+  }
+}
