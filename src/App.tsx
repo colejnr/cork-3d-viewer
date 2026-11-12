@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { loadCesium, type C } from './cesium';
 import { PRIORITY, type Config, type Finding } from './types';
 
-type Basemap = 'map' | 'satellite';
+/** 'none' = plain background in the page colour. */
+type Basemap = 'none' | 'map' | 'satellite';
 
 interface Api {
   overview: (dur?: number) => void;
@@ -130,9 +131,10 @@ export default function App() {
       const applyBackdrop = () => {
         const layers = viewer.imageryLayers;
         layers.removeAll();
-        const plain = buildingMode;
-        // The globe has to stay shown for clipping polygons to work, so in
-        // "Building only" it becomes a plain floor in the page colour instead.
+        // The base map and the building cut are independent: the cut building can sit
+        // on the map, the satellite image or a plain background. The globe has to stay
+        // shown for clipping polygons to work, so "no map" is a plain floor instead.
+        const plain = basemapNow === 'none';
         if (!plain) layers.addImageryProvider(basemapNow === 'map' ? osm() : esri());
         const bg = Cesium.Color.fromCssColorString(css('--bg', '#f4f5f7'));
         scene.globe.baseColor = plain ? bg : Cesium.Color.fromCssColorString('#8a8f98');
@@ -142,7 +144,7 @@ export default function App() {
         if (scene.skyBox) scene.skyBox.show = !plain;
         if (scene.sun) scene.sun.show = !plain;
         if (scene.moon) scene.moon.show = !plain;
-        if (tileset.clippingPolygons) tileset.clippingPolygons.enabled = plain;
+        if (tileset.clippingPolygons) tileset.clippingPolygons.enabled = buildingMode;
         scene.requestRender();
       };
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -230,6 +232,8 @@ export default function App() {
       const startIsolated = !!(ring && config.buildingOnlyAtStart);
       if (startIsolated) {
         setBuildingOnly(true);
+        setBasemap('none');
+        basemapNow = 'none';
         api.current.setBuildingOnly(true, 0);
       } else {
         applyBackdrop();
@@ -307,6 +311,13 @@ export default function App() {
     else api.current.flyTo(active);
   }, [active]);
 
+  // Map / Satellite switch on, and off again on a second click (plain background).
+  const pickBasemap = (b: Basemap) => {
+    const next = basemap === b ? 'none' : b;
+    setBasemap(next);
+    api.current?.setBasemap(next);
+  };
+
   const findings = cfg?.findings ?? [];
   const canFull = typeof document !== 'undefined' && !!document.documentElement.requestFullscreen;
   const meta = cfg ? [cfg.site.address, cfg.site.surveyDate && `Surveyed ${fmtDate(cfg.site.surveyDate)}`, cfg.site.client && `For ${cfg.site.client}`].filter(Boolean) : [];
@@ -325,11 +336,17 @@ export default function App() {
 
       <div className="tools" role="toolbar" aria-label="View options">
         <div className="seg" role="group" aria-label="Base map">
-          <button aria-pressed={basemap === 'map'} disabled={buildingOnly} onClick={() => { setBasemap('map'); api.current?.setBasemap('map'); }}>Map</button>
-          <button aria-pressed={basemap === 'satellite'} disabled={buildingOnly} onClick={() => { setBasemap('satellite'); api.current?.setBasemap('satellite'); }}>Satellite</button>
+          <button aria-pressed={basemap === 'map'} title="Street map (click again to hide)" onClick={() => pickBasemap('map')}>Map</button>
+          <button aria-pressed={basemap === 'satellite'} title="Satellite image (click again to hide)" onClick={() => pickBasemap('satellite')}>Satellite</button>
         </div>
         {cfg?.outline?.length ? (
-          <button className="tbtn" aria-pressed={buildingOnly} onClick={() => { const v = !buildingOnly; setBuildingOnly(v); setActive(null); api.current?.setBuildingOnly(v); }}>
+          <button className="tbtn" aria-pressed={buildingOnly} onClick={() => {
+            const v = !buildingOnly;
+            setBuildingOnly(v);
+            setActive(null);
+            if (!v && basemap === 'none') pickBasemap('map'); // the full model needs the map around it
+            api.current?.setBuildingOnly(v);
+          }}>
             <Icon d="M4 21V9l8-6 8 6v12M9 21v-6h6v6" /> <span>Building only</span>
           </button>
         ) : null}

@@ -27,7 +27,8 @@ npm run dev       # http://localhost:5173
 
 ## The viewer
 
-- **Map / Satellite:** switches the base map between OpenStreetMap and Esri World Imagery.
+- **Map / Satellite:** shows OpenStreetMap or Esri World Imagery under the model; click the
+  active one again for a plain background. Works with or without the building cut.
 - **Building only** (the default view for this job): hides everything outside the client's
   building outline and shows the building on a plain background. It uses an inverse `ClippingPolygonCollection`, plus an optional
   floor plane (`buildingFloor`).
