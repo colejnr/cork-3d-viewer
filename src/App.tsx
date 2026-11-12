@@ -8,7 +8,7 @@ interface Api {
   overview: (dur?: number) => void;
   flyTo: (i: number) => void;
   setBasemap: (b: Basemap) => void;
-  setBuildingOnly: (on: boolean) => void;
+  setBuildingOnly: (on: boolean, dur?: number) => void;
   screenshot: () => void;
 }
 
@@ -192,7 +192,7 @@ export default function App() {
           basemapNow = b;
           applyBackdrop();
         },
-        setBuildingOnly: (on) => {
+        setBuildingOnly: (on, dur = 1.2) => {
           buildingMode = on;
           // Optional floor cut: hide stray ground/water geometry below the building.
           if (config.buildingFloor !== undefined && c0) {
@@ -209,7 +209,7 @@ export default function App() {
             tileset.clippingPlanes.enabled = on;
           }
           applyBackdrop();
-          overview(1.2);
+          overview(dur);
         },
         screenshot: () => {
           scene.render();
@@ -220,25 +220,56 @@ export default function App() {
         },
       };
 
-      applyBackdrop();
-      overview(0);
+      // Start on the client's building alone (config.buildingOnlyAtStart), or on the map.
+      // Wait one frame first so the tileset's clipping origin includes heightOffset.
+      await new Promise<void>((done) => {
+        const off = scene.postRender.addEventListener(() => { off(); done(); });
+        scene.requestRender();
+      });
+      if (dead) return;
+      const startIsolated = !!(ring && config.buildingOnlyAtStart);
+      if (startIsolated) {
+        setBuildingOnly(true);
+        api.current.setBuildingOnly(true, 0);
+      } else {
+        applyBackdrop();
+        overview(0);
+      }
       setStatus('');
 
-      // Drop probes onto the model once the detailed tiles are in: the pins (snapped
-      // onto the roof) and the outline (to find the roof height for "Building only").
-      const ringProbes = ring ? [...ring, c0!] : [];
-      const probes = [...finds.map((f) => [f.lon, f.lat]), ...ringProbes].map(([lon, lat]) => Cesium.Cartesian3.fromDegrees(lon, lat, startH));
-      if (probes.length) {
+      // Has the viewer moved the camera themselves yet? (Then don't re-frame for them.)
+      let touched = false;
+      const markTouched = () => { touched = true; };
+      for (const ev of ['pointerdown', 'wheel', 'touchstart']) scene.canvas.addEventListener(ev, markTouched, { passive: true });
+
+      // Roof height for the "Building only" camera: sample the tiles already loaded
+      // (cheap), once the first view has finished loading.
+      if (ring) {
+        const sampleRoof = () => {
+          const hs = insidePoints(ring)
+            .map(([lon, lat]) => scene.clampToHeight(Cesium.Cartesian3.fromDegrees(lon, lat, startH)))
+            .filter(Boolean)
+            .map((p: C) => Cesium.Cartographic.fromCartesian(p).height)
+            .sort((x: number, y: number) => x - y);
+          if (!hs.length) return false;
+          setBuildingSphere(hs[Math.floor(hs.length * 0.75)]);
+          if (buildingMode && !touched) overview(1); // re-frame now the real roof height is known
+          return true;
+        };
+        const off = tileset.allTilesLoaded.addEventListener(() => {
+          if (dead || sampleRoof()) off();
+        });
+        cleanups.push(() => off());
+      }
+
+      // Snap the pins onto the roof once the most detailed tiles are in.
+      if (finds.length) {
+        const probes = finds.map((f) => Cesium.Cartesian3.fromDegrees(f.lon, f.lat, startH));
         try {
           const hit: (C | undefined)[] = await scene.clampToHeightMostDetailed(probes);
           if (dead) return;
           const heights = hit.map((p) => (p ? Cesium.Cartographic.fromCartesian(p).height : NaN));
-          const sorted = (hs: number[]) => hs.filter((h) => Number.isFinite(h)).sort((x, y) => x - y);
-
-          const roof = sorted(heights.slice(finds.length));
-          if (roof.length) setBuildingSphere(roof[Math.floor(roof.length * 0.75)]);
-
-          const ok = sorted(heights.slice(0, finds.length));
+          const ok = heights.filter((h) => Number.isFinite(h)).sort((x, y) => x - y);
           const median = ok.length ? ok[Math.floor(ok.length / 2)] : NaN;
           finds.forEach((f, i) => {
             // missed the roof (no hit, or landed on stray ground/water geometry) -> median of the others
@@ -247,7 +278,7 @@ export default function App() {
           });
           scene.requestRender();
         } catch (e) {
-          console.warn('Could not sample the roof height', e);
+          console.warn('Could not place the pins on the roof', e);
         }
       }
     })().catch((e) => {
@@ -373,6 +404,23 @@ function slug(s: string) {
 function centroid(ring: [number, number][]): [number, number] {
   const n = ring.length;
   return [ring.reduce((s, p) => s + p[0], 0) / n, ring.reduce((s, p) => s + p[1], 0) / n];
+}
+
+/** A grid of points inside a lon/lat ring (plus its centroid), for sampling the roof height. */
+function insidePoints(ring: [number, number][], n = 8): [number, number][] {
+  const xs = ring.map((p) => p[0]), ys = ring.map((p) => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const inside = ([x, y]: [number, number]) => {
+    let hit = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+    }
+    return hit;
+  };
+  const pts: [number, number][] = [centroid(ring)];
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) pts.push([x0 + ((i + 0.5) / n) * (x1 - x0), y0 + ((j + 0.5) / n) * (y1 - y0)]);
+  return pts.filter(inside);
 }
 
 /** Push a lon/lat ring outwards by `d` metres (mitred corners, capped). */

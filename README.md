@@ -28,8 +28,8 @@ npm run dev       # http://localhost:5173
 ## The viewer
 
 - **Map / Satellite:** switches the base map between OpenStreetMap and Esri World Imagery.
-- **Building only:** hides everything outside the building outline and shows the building
-  on a plain background. It uses an inverse `ClippingPolygonCollection`, plus an optional
+- **Building only** (the default view for this job): hides everything outside the client's
+  building outline and shows the building on a plain background. It uses an inverse `ClippingPolygonCollection`, plus an optional
   floor plane (`buildingFloor`).
 - **Findings:** numbered pins coloured by priority, snapped onto the roof. Click a finding
   in the list to fly to it, and click it again to return to the overview.
@@ -58,6 +58,7 @@ npm run dev       # http://localhost:5173
      "heightOffset": -59,        // metres; lowers the model so its street meets the map (see below)
      "outlinePadding": 1.5,      // metres added around the outline so the eaves aren't cut
      "buildingFloor": 0,         // optional: in "Building only", hide anything below this height
+     "buildingOnlyAtStart": true, // open on the building alone; false = open on the map
      "outline": [[lon, lat], …], // building footprint (WGS84), used by "Building only"
      "findings": [
        { "number": 1, "title": "Ponding by the east outlet", "priority": "high", "lon": -8.4634, "lat": 51.8978 }
@@ -67,6 +68,9 @@ npm run dev       # http://localhost:5173
 
    - `priority` is `high`, `medium` or `low`. If you leave `findings` empty, the list is hidden.
    - Leave out `outline` to hide the **Building only** button.
+   - **Building footprint:** the easiest source is OpenStreetMap. On openstreetmap.org, click
+     the building, then use the way ID with Overpass Turbo (`way(<id>); out geom;`) to copy
+     its lon/lat points. Cork uses way 314936108 (One Albert Quay).
    - Leave `client` empty to keep it out of the header.
    - **`heightOffset`:** DJI models use ellipsoid heights, which puts the model's street
      level about 50–60 m above the flat base map in Ireland. Start at about `-58` and adjust in

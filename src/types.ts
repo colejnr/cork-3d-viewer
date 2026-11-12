@@ -17,6 +17,8 @@ export interface Config {
   heightOffset?: number;
   /** Building outline as a [lon, lat] ring, used by "Building only". */
   outline?: [number, number][];
+  /** Open on the building alone (true) or on the map with its surroundings (false). */
+  buildingOnlyAtStart?: boolean;
   /** Metres to push the outline outwards so eaves and gutters are not cut. */
   outlinePadding?: number;
   /** Optional: in "Building only", also hide everything below this height (metres, after heightOffset). */
